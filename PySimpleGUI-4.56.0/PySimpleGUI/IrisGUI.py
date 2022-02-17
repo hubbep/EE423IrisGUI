@@ -5,23 +5,9 @@ import PIL
 import io
 import base64
 import os
+import ctypes
 
-"""
-    Demo Image Album.... displays images on Graph Element and has a visual "slide transition"
-
-
-    Click on right side of image to navigate down through filenames, left side for up.
-
-    PIL is required for this particular demo because it displays PNG, JPG, TIFF, BMP, GIF and ICO files
-
-    Contains a couple of handy PIL-based image functions that resize an image while maintaining correct proportion.
-    One you pass a filename, the other a BASE64 string.
-
-    Copyright 2020 PySimpleGUI.org
-"""
-
-G_SIZE = (1920, 1080)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
-
+G_SIZE = (820, 480)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
 sg.theme('black')
 
 
@@ -41,6 +27,11 @@ def convert_to_bytes(file_or_bytes, resize=None):
         img = PIL.Image.open(io.BytesIO(base64.b64decode(file_or_bytes)))
 
     cur_width, cur_height = img.size
+    if file_or_bytes != background_to_display:
+        if cur_height != 480 or cur_width != 640:
+            window['-DIMERROR-'].update('Warning: unexpected image dimension')
+        else:
+            window['-DIMERROR-'].update('')
     if resize:
         new_width, new_height = resize
         scale = min(new_height / cur_height, new_width / cur_width)
@@ -51,6 +42,12 @@ def convert_to_bytes(file_or_bytes, resize=None):
     return bio.getvalue()
 
 
+def draw_image_raw():
+    file_to_display = os.path.join(folder, fnames[offset])
+    window['-FILENAME-'].update(file_to_display)
+    img_data = convert_to_bytes(file_to_display, resize=None)
+    image_id = graph.draw_image(data=img_data, location=(0, G_SIZE[1]))
+    return image_id
 
 
 folder = sg.popup_get_folder('Where are your images?')
@@ -58,52 +55,84 @@ if not folder:
     exit(0)
 
 file_list = os.listdir(folder)
-fnames = [f for f in file_list if os.path.isfile(
-    os.path.join(folder, f)) and f.lower().endswith((".png", ".jpg", "jpeg", ".tiff", ".bmp", ".gif", ".ico"))]
+fnames = [f for f in file_list if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith((".png", ".jpg", "jpeg", ".tiff", ".bmp", ".gif", ".ico"))]
 num_files = len(fnames)
 
-graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G_SIZE, enable_events=True,
-                 key='-GRAPH-', pad=(0, 0))
+graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G_SIZE, enable_events=True, key='-GRAPH-', pad=(0, 0), change_submits=True, drag_submits=True)
 
-col_layout = [[sg.T('Name'), sg.In()],
-              [sg.T('Address'), sg.In()]]
+col = [[sg.T('Choose what clicking a figure does', enable_events=True)],
+       # Draw Oval needs to be implemented
+       [sg.R('Draw Oval', 1, key='-OVAL-', enable_events=True)],
+       [sg.R('Draw Line', 1, key='-LINE-', enable_events=True)],
+       [sg.R('Draw points', 1, key='-POINT-', enable_events=True)],
+       [sg.R('Erase item', 1, key='-ERASE-', enable_events=True)],
+       # Erase selection needs to be implemented
+       [sg.R('Erase selection', 1, key='-SELECT_ERASE-', enable_events=True)],
+       [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
+       [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
+       [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
+       [sg.B('Save Image', key='-SAVE-')],
+       ]
 
-layout = [[sg.Text('Click on the right side of the window to navigate forward, the left side to go backwards')],
-          [sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-')],
-          [graph],
-          [sg.Text('Text along bottom of first col')]]
+col_layout = [[sg.Text('Toolbar')],
+              [sg.Button('-LEFT-')],
+              [sg.Button('-ELSE-')],
+              [sg.Button('-PUPILMASK-')]]
 
-window = sg.Window('Scrolling Image Viewer', layout, margins=(0, 0), use_default_focus=False, finalize=True)
+layout = [[sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-'), sg.Text('', k='-DIMERROR-')],
+          [graph, sg.Column(col_layout)],
+          [sg.Text('Developed for Clarkson Universtiy Biometric Department'), sg.Text(key='info', size=(60, 1))]]
 
-offset, move_amount, direction = 0, 5, 'left'
+window = sg.Window('Iris correction program', layout, margins=(0, 0), use_default_focus=False, finalize=True)
+
+background_to_display = os.path.join(os.getcwd(), 'background.png')
+background_data = convert_to_bytes(background_to_display, resize=G_SIZE)
+background = graph.draw_image(data=background_data, location=(0, G_SIZE[1]))
+
+
+offset, move_amount, tool = 0, 5, '-NONE-'
+image_id = draw_image_raw()
+dragging = False
+start_point = end_point = prior_rect = None
 
 while True:
-    file_to_display = os.path.join(folder, fnames[offset])
-    background_to_display = os.path.join(os.getcwd(), 'background.png')
-    background_data = convert_to_bytes(background_to_display, resize=None)
-    background = graph.draw_image(data=background_data, location=(0, G_SIZE[1]))
-    window['-FILENAME-'].update(file_to_display)
-    img_data = convert_to_bytes(file_to_display, resize=(G_SIZE[0] - 20, G_SIZE[1] - 20))
-    image_id = graph.draw_image(data=img_data, location=(0, G_SIZE[1]))
 
+    # program is paused here until window.read() completed?
+    event: object
     event, values = window.read()
     if event == sg.WIN_CLOSED:
         break
-
-    # if image is clicked, then move in the left direction if clicked on left half of the image
-    if event == '-GRAPH-':
-        direction = 'left' if values['-GRAPH-'][0] < (G_SIZE[0] // 2) else 'right'
-
-    # Do the animation
-    for i in range(G_SIZE[0] // move_amount):
-        graph.move_figure(image_id, -move_amount if direction == 'left' else move_amount, 0)
-        window.refresh()
-    graph.delete_figure(image_id)
-
-    # Bump the image index
-    if direction == 'left':
+        
+    if event == '-LEFT-':
+        # FUNCTIONALITY TO BE IMPLEMENTED
         offset = (offset + (num_files - 1)) % num_files  # Decrement - roll over to MAX from 0
-    else:
+        graph.delete_figure(image_id)
+        image_id = draw_image_raw()
+
+    if event == '-ELSE-':
+        # FUNCTIONALITY TO BE IMPLEMENTED
         offset = (offset + 1) % num_files  # Increment to MAX then roll over to 0
+        graph.delete_figure(image_id)
+        image_id = draw_image_raw()
+
+    if event == '-PUPILMASK-':
+        tool = '-PUPILMASK-'
+
+    if event == '-GRAPH-' and tool == '-PUPILMASK-':  # if there's a "Graph" event, then it's a mouse
+        x, y = values['-GRAPH-']
+        if not dragging:
+            start_point = (x, y)
+            dragging = True
+        else:
+            end_point = (x, y)
+        if prior_rect:
+            graph.delete_figure(prior_rect)
+        if None not in (start_point, end_point):
+            prior_rect = graph.draw_oval(start_point, end_point, line_color='red')
+    elif event.endswith('+UP'):  # The drawing has ended because mouse up
+        info = window['info']
+        info.update(value=f"grabbed rectangle from {start_point} to {end_point}")
+        start_point, end_point = None, None  # enable grabbing a new rect
+        dragging = False
 
 window.close()
