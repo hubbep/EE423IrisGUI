@@ -2,14 +2,13 @@
 import PySimpleGUI as sg
 import numpy as np
 from PIL import Image
-from PIL import ImageGrab
 import PIL
 import io
 import base64
 import os
 
-
-G_SIZE = (640, 480)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
+screen_width, screen_height = sg.Window.get_screen_size()
+G_SIZE = (screen_width-400, screen_height-200)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
 sg.theme('black')
 
 '''
@@ -18,6 +17,9 @@ CLASS TO ACCESS MASK DATA AND LOGIC
 
 
 class ovalMask:
+    """
+    Note: error handling of object when object does not exist (aka. data is still None) needs to be implemented
+    """
     def __init__(self, top_left=None, bottom_right=None, h=None, k=None, a=None, b=None, plot_ID = None):
         self.center = (h, k)
         self.width = a
@@ -70,20 +72,22 @@ CLASS TO ACCESS IMAGE DATA AND LOGIC
 
 
 class imageProcessing:
-    def __init__(self, file_or_bytes, resize=None, scale=None, img=None, file=None, plot_ID=None):
+    def __init__(self, file_or_bytes=None, resize=None, scale=None, img=None, plot_id=None):
+        self.org_width = None
+        self.org_height = None
         self.fileOrBytes = file_or_bytes
         self.resize = resize
         self.scale = scale
         self.img = img
-        self.file = file
-        self.plotID = plot_ID
+        self.file = None
+        self.plotID = plot_id
         self.get_img()
         self.resize_img()
 
     def __del__(self):
         print("Deleting imageProcessing obj")
 
-    def get_file(self):
+    def get_isfile(self):
         if isinstance(self.fileOrBytes, str):
             self.file = self.fileOrBytes
             return True
@@ -99,7 +103,7 @@ class imageProcessing:
         if self.img is not None:
             return self.img
         else:
-            if self.get_file():
+            if self.get_isfile():
                 img = PIL.Image.open(self.fileOrBytes)
             else:
                 img = PIL.Image.open(io.BytesIO(base64.b64decode(self.fileOrBytes)))
@@ -111,10 +115,14 @@ class imageProcessing:
         FUNCTION RESIZES IMAGE WHILE PRESERVING SCALE
         (The whole purpose of this class is to preserve variables for use in other functions)
         """
+        if self.org_width is None or self.org_height is None:
+            self.org_width, self.org_height = self.img.size
         cur_width, cur_height = self.img.size
         if self.resize:
             new_width, new_height = self.resize
             self.scale = min(new_height / cur_height, new_width / cur_width)
+            self.img = self.img.resize((int(cur_width * self.scale), int(cur_height * self.scale)), PIL.Image.ANTIALIAS)
+        if self.scale:
             self.img = self.img.resize((int(cur_width * self.scale), int(cur_height * self.scale)), PIL.Image.ANTIALIAS)
 
     def draw_image_raw(self):
@@ -156,19 +164,17 @@ def export_mask():
     for k in range(0, cur_height, 1):
         for h in range(0, cur_width, 1):
             if inner_mask.check_inside(point=(h, k)) is True:
-                # graph.draw_point((h, k), size=1, color='black') # Tried this - slow and crashes
                 array[k, h] = [0, 0, 0]
             elif outer_mask.check_inside(point=(h, k)) is False:
-                # graph.draw_point((h, k), size=1, color='black') # Tried this - slow and crashes
                 array[k, h] = [0, 0, 0]
             else:
-                # graph.draw_point((h, k), size=1, color='white') # Tried this - slow and crashes
                 array[k, h] = [255, 255, 255]
 
     array = np.flip(array, axis=0)
 
     # Use PIL to create an image from the new array of pixels
     new_image = Image.fromarray(array)
+    new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
     new_image.save(filename)
 
 
@@ -183,31 +189,25 @@ fnames = [f for f in file_list if os.path.isfile(os.path.join(folder, f)) and f.
     (".png", ".jpg", "jpeg", ".tiff", ".bmp", ".gif", ".ico"))]
 num_files = len(fnames)
 graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G_SIZE, enable_events=True,
-                 key='-GRAPH-', pad=(0, 0), change_submits=True, drag_submits=True)
+                 key='-GRAPH-', pad=(0, 0), change_submits=True, drag_submits=True, background_color='grey')
 
 '''
 # ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----
 '''
-# col_layout = [[sg.Text('Toolbar')],
-#               [sg.Button('-PREVIOUS-')],
-#               [sg.Button('-NEXT-')],
-#               [sg.Button('-PUPILMASK-')]]
-col = [[sg.T('Choose what clicking a figure does', enable_events=True)],
-       # Draw Oval needs to be implemented
-       [sg.R('Previous Image', 1, key='-PREV-', enable_events=True)],
-       [sg.R('Next image', 1, key='-NEXT-', enable_events=True)],
+col = [[sg.T('GRAPH TOOLS', enable_events=True)],
+       # Draw Oval needs to be modified for better usability
        [sg.R('Draw Oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
        [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
        # [sg.R('Draw points', 1, key='-POINT-', enable_events=True)],
-       [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
-       [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
-       [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
+       # [sg.R('Erase item', 1, key='-ERASE-', enable_events=True)],
        # Erase selection needs to be implemented
        # [sg.R('Erase selection', 1, key='-SELECT_ERASE-', enable_events=True)],
        # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
        # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
        # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
-       [sg.B('Save Image', key='-SAVE-')],
+       [sg.T('FILE TOOLS', enable_events=True)],
+       [sg.B('Previous Image', key='-PREV-'), sg.B('Next Image', key='-NEXT-')],
+       [sg.B('Save Mask', key='-SAVE-')],
        ]
 layout = [[sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-'), sg.Text('', k='-DIMERROR-')],
           [graph, sg.Column(col)],
@@ -217,14 +217,14 @@ window = sg.Window('Iris correction program', layout, margins=(0, 0), use_defaul
 '''
 # ---- LOGIC SECTION ----    ---- LOGIC SECTION ----    ---- LOGIC SECTION ----    ---- LOGIC SECTION ----
 '''
-background_to_display = os.path.join(os.getcwd(), 'background.png')
-background = imageProcessing(file_or_bytes=background_to_display, resize=G_SIZE)
-background.draw_image_raw()
+# background_to_display = os.path.join(os.getcwd(), 'background.png')
+# background = imageProcessing(file_or_bytes=background_to_display, resize=G_SIZE)
+# background.draw_image_raw()
 
 offset, move_amount, tool, inner_mask, outer_mask = 0, 5, '-NONE-', ovalMask(), ovalMask()
 file_to_display = os.path.join(folder, fnames[offset])
 window['-FILENAME-'].update(file_to_display)
-image_id = imageProcessing(file_or_bytes=file_to_display)
+image_id = imageProcessing(file_or_bytes=file_to_display, resize=G_SIZE)
 image_id.draw_image_raw()
 dragging = False
 start_point = end_point = prior_rect = None
@@ -241,7 +241,7 @@ while True:
         graph.erase()
         file_to_display = os.path.join(folder, fnames[offset])
         window['-FILENAME-'].update(file_to_display)
-        image_id = imageProcessing(file_or_bytes=file_to_display)
+        image_id = imageProcessing(file_or_bytes=file_to_display, resize=G_SIZE)
         image_id.draw_image_raw()
 
     if event == '-NEXT-':
@@ -250,7 +250,7 @@ while True:
         graph.erase()
         file_to_display = os.path.join(folder, fnames[offset])
         window['-FILENAME-'].update(file_to_display)
-        image_id = imageProcessing(file_or_bytes=file_to_display)
+        image_id = imageProcessing(file_or_bytes=file_to_display, resize=G_SIZE)
         image_id.draw_image_raw()
 
     # if event == '-MASK-':
@@ -265,17 +265,6 @@ while True:
 
     if event == '-OUT-OVAL-':
         tool = '-OUT-OVAL-'
-
-    if values['-ERASE-INNER-']:
-        graph.delete_figure(inner_mask.plotID)
-        graph.delete_figure(prior_rect)
-    if values['-ERASE-OUTER-']:
-        graph.delete_figure(outer_mask.plotID)
-        graph.delete_figure(prior_rect)
-    if values['-CLEAR-']:
-        graph.delete_figure(inner_mask.plotID)
-        graph.delete_figure(outer_mask.plotID)
-        graph.delete_figure(prior_rect)
 
     if event == '-GRAPH-' and (
             tool == '-IN-OVAL-' or tool == '-OUT-OVAL-'):  # if there's a "Graph" event that requires a drag select
