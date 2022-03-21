@@ -2,6 +2,7 @@
 import PySimpleGUI as sg
 import numpy as np
 from PIL import Image
+from PIL import ImageGrab
 import PIL
 import io
 import base64
@@ -9,6 +10,7 @@ import os
 
 screen_width, screen_height = sg.Window.get_screen_size()
 G_SIZE = (screen_width-400, screen_height-200)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
+
 sg.theme('black')
 
 '''
@@ -206,11 +208,13 @@ graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G
 # ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----    ---- LAYOUT SECTION ----
 '''
 col = [[sg.T('GRAPH TOOLS', enable_events=True)],
-       # Draw Oval needs to be modified for better usability
+       # Draw Oval needs to be implemented
        [sg.R('Draw Oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
        [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
        # [sg.R('Draw points', 1, key='-POINT-', enable_events=True)],
-       # [sg.R('Erase item', 1, key='-ERASE-', enable_events=True)],
+       [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
+       [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
+       [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
        # Erase selection needs to be implemented
        # [sg.R('Erase selection', 1, key='-SELECT_ERASE-', enable_events=True)],
        # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
@@ -276,6 +280,17 @@ while True:
 
     if event == '-OUT-OVAL-':
         tool = '-OUT-OVAL-'
+
+    if values['-ERASE-INNER-']:
+        graph.delete_figure(inner_mask.plotID)
+        graph.delete_figure(prior_rect)
+    if values['-ERASE-OUTER-']:
+        graph.delete_figure(outer_mask.plotID)
+        graph.delete_figure(prior_rect)
+    if values['-CLEAR-']:
+        graph.delete_figure(inner_mask.plotID)
+        graph.delete_figure(outer_mask.plotID)
+        graph.delete_figure(prior_rect)
 
     if event == '-GRAPH-' and (
             tool == '-IN-OVAL-' or tool == '-OUT-OVAL-'):  # if there's a "Graph" event that requires a drag select
