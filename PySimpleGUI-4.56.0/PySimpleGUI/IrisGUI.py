@@ -67,6 +67,17 @@ class ovalMask:
 
 
 '''
+CLASS FOR CAPTURING DRAWN POINTS
+'''
+
+
+# class pointsMask(ovalMask):
+#     def __init__(self, center=(None, None), radius=None):
+#         h, k = center
+#         super.__init__(self, h=h, k=k, a=radius, b=radius)
+
+
+'''
 CLASS TO ACCESS IMAGE DATA AND LOGIC
 '''
 
