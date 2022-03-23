@@ -2,20 +2,19 @@
 import PySimpleGUI as sg
 import numpy as np
 from PIL import Image
-from PIL import ImageGrab
 import PIL
 import io
 import base64
 import os
 
 screen_width, screen_height = sg.Window.get_screen_size()
-G_SIZE = (screen_width-400, screen_height-200)  # Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels
+''' Size of the Graph in pixels. Using a 1 to 1 mapping of pixels to pixels '''
+G_SIZE = (screen_width-400, screen_height-200)
 
 sg.theme('black')
 
-'''
-CLASS TO ACCESS MASK DATA AND LOGIC
-'''
+
+''' CLASS TO ACCESS MASK DATA AND LOGIC '''
 
 
 class ovalMask:
@@ -68,9 +67,7 @@ class ovalMask:
 # class arcMask():
 
 
-'''
-CLASS FOR CAPTURING DRAWN POINTS
-'''
+''' CLASS FOR CAPTURING DRAWN POINTS '''
 
 
 # class pointsMask(ovalMask):
@@ -79,13 +76,12 @@ CLASS FOR CAPTURING DRAWN POINTS
 #         super.__init__(self, h=h, k=k, a=radius, b=radius)
 
 
-'''
-CLASS TO ACCESS IMAGE DATA AND LOGIC
-'''
+''' CLASS TO ACCESS IMAGE DATA AND LOGIC '''
 
 
 class imageProcessing:
     def __init__(self, file_or_bytes=None, resize=None, scale=None, img=None, plot_id=None):
+        self.array = None
         self.org_width = None
         self.org_height = None
         self.fileOrBytes = file_or_bytes
@@ -114,6 +110,8 @@ class imageProcessing:
         (Error handling for missing fileOrBytes could be implemented)
         """
         if self.img is not None:
+            width, height = self.img.size
+            self.array = np.full(shape=(height, width, 3), fill_value=255, dtype=np.uint8)
             return self.img
         else:
             if self.get_isfile():
@@ -121,6 +119,8 @@ class imageProcessing:
             else:
                 img = PIL.Image.open(io.BytesIO(base64.b64decode(self.fileOrBytes)))
             self.img = img
+            width, height = self.img.size
+            self.array = np.full(shape=(height, width, 3), fill_value=255, dtype=np.uint8)
             return self.img
 
     def resize_img(self):
@@ -147,10 +147,30 @@ class imageProcessing:
         self.plotID = graph.draw_image(data=bio.getvalue(), location=(0, G_SIZE[1]))
         return self.plotID
 
+    def export_mask(self):
+        self.get_isfile()
+        filename_prefix = os.path.splitext(self.file)[0]
+        filename_suffix = "mask.jpg"
+        filename = os.path.join(folder, filename_prefix + "_" + filename_suffix)
+        cur_width, cur_height = self.img.size
 
-'''
-OTHER FUNCTIONS
-'''
+        for k in range(0, cur_height, 1):
+            for h in range(0, cur_width, 1):
+                if inner_mask.check_inside(point=(h, k)) is True:
+                    self.array[k, h] = [0, 0, 0]
+                elif outer_mask.check_inside(point=(h, k)) is False:
+                    self.array[k, h] = [0, 0, 0]
+                else:
+                    self.array[k, h] = [255, 255, 255]
+
+        self.array = np.flip(self.array, axis=0)
+
+        # Use PIL to create an image from the new array of pixels
+        new_image = Image.fromarray(self.array)
+        new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
+        new_image.save(filename)
+
+''' OTHER FUNCTIONS '''
 
 
 # def save_element_as_file(element, filename):
@@ -166,29 +186,26 @@ OTHER FUNCTIONS
 #     grab.save(filename)
 
 
-def export_mask():
-    filename_prefix = os.path.splitext(image_id.file)[0]
-    filename_suffix = "mask.jpg"
-    filename = os.path.join(folder, filename_prefix + "_" + filename_suffix)
-    cur_width, cur_height = image_id.img.size
-
-    array = np.zeros(shape=(cur_height, cur_width, 3), dtype=np.uint8)
-
-    for k in range(0, cur_height, 1):
-        for h in range(0, cur_width, 1):
-            if inner_mask.check_inside(point=(h, k)) is True:
-                array[k, h] = [0, 0, 0]
-            elif outer_mask.check_inside(point=(h, k)) is False:
-                array[k, h] = [0, 0, 0]
-            else:
-                array[k, h] = [255, 255, 255]
-
-    array = np.flip(array, axis=0)
-
-    # Use PIL to create an image from the new array of pixels
-    new_image = Image.fromarray(array)
-    new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
-    new_image.save(filename)
+# def export_mask():
+#     filename_prefix = os.path.splitext(image_id.file)[0]
+#     filename_suffix = "mask.jpg"
+#     filename = os.path.join(folder, filename_prefix + "_" + filename_suffix)
+#
+#     for k in range(0, cur_height, 1):
+#         for h in range(0, cur_width, 1):
+#             if inner_mask.check_inside(point=(h, k)) is True:
+#                 array[k, h] = [0, 0, 0]
+#             elif outer_mask.check_inside(point=(h, k)) is False:
+#                 array[k, h] = [0, 0, 0]
+#             else:
+#                 array[k, h] = [255, 255, 255]
+#
+#     array = np.flip(array, axis=0)
+#
+#     # Use PIL to create an image from the new array of pixels
+#     new_image = Image.fromarray(array)
+#     new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
+#     new_image.save(filename)
 
 
 '''
@@ -201,6 +218,7 @@ file_list = os.listdir(folder)
 fnames = [f for f in file_list if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(
     (".png", ".jpg", "jpeg", ".tiff", ".bmp", ".gif", ".ico"))]
 num_files = len(fnames)
+
 graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G_SIZE, enable_events=True,
                  key='-GRAPH-', pad=(0, 0), change_submits=True, drag_submits=True, background_color='grey')
 
@@ -273,7 +291,7 @@ while True:
 
     if event == '-SAVE-':
         print("Saving graph")
-        export_mask()
+        image_id.export_mask()
 
     if event == '-IN-OVAL-':
         tool = '-IN-OVAL-'
