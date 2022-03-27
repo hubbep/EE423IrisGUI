@@ -1,5 +1,6 @@
 import configparser
 import os
+from os.path import exists
 
 
 def config_section_map(section):
@@ -16,8 +17,13 @@ def config_section_map(section):
 
 Config = configparser.ConfigParser()
 config_file_location = os.path.join(os.getcwd(), 'tommorow.ini')
-Config.read(config_file_location)
-Config.sections()
+if exists(config_file_location):
+    Config.read(config_file_location)
+else:
+    cfgfile = open(config_file_location, 'w')
+    cfgfile.close()
+
+
 Name = config_section_map("SectionOne")['name']
 Age = config_section_map("SectionOne")['age']
 
@@ -28,8 +34,8 @@ print(single)
 
 # CLEAR CONFIG
 # print(Config.sections())
-for section in Config.sections():
-    Config.remove_section(section)
+for asection in Config.sections():
+    Config.remove_section(asection)
 # print(Config.sections())
 
 config_file_location = os.path.join(os.getcwd(), 'next.ini')
