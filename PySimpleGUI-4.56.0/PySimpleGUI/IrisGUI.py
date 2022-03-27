@@ -170,42 +170,8 @@ class imageProcessing:
         new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
         new_image.save(filename)
 
+
 ''' OTHER FUNCTIONS '''
-
-
-# def save_element_as_file(element, filename):
-#     """
-#     Saves any element as an image file.  Element needs to have an underlyiong Widget available (almost if not all of them do)
-#     :param element: The element to save
-#     :param filename: The filename to save to. The extension of the filename determines the format (jpg, png, gif, ?)
-#     """
-#     widget = element.Widget
-#     box = (widget.winfo_rootx(), widget.winfo_rooty(), widget.winfo_rootx() + widget.winfo_width(),
-#            widget.winfo_rooty() + widget.winfo_height())
-#     grab = ImageGrab.grab(bbox=box)
-#     grab.save(filename)
-
-
-# def export_mask():
-#     filename_prefix = os.path.splitext(image_id.file)[0]
-#     filename_suffix = "mask.jpg"
-#     filename = os.path.join(folder, filename_prefix + "_" + filename_suffix)
-#
-#     for k in range(0, cur_height, 1):
-#         for h in range(0, cur_width, 1):
-#             if inner_mask.check_inside(point=(h, k)) is True:
-#                 array[k, h] = [0, 0, 0]
-#             elif outer_mask.check_inside(point=(h, k)) is False:
-#                 array[k, h] = [0, 0, 0]
-#             else:
-#                 array[k, h] = [255, 255, 255]
-#
-#     array = np.flip(array, axis=0)
-#
-#     # Use PIL to create an image from the new array of pixels
-#     new_image = Image.fromarray(array)
-#     new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
-#     new_image.save(filename)
 
 
 '''
@@ -217,6 +183,7 @@ if not folder:
 file_list = os.listdir(folder)
 fnames = [f for f in file_list if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(
     (".png", ".jpg", "jpeg", ".tiff", ".bmp", ".gif", ".ico"))]
+# TO DO
 num_files = len(fnames)
 
 graph = sg.Graph(canvas_size=G_SIZE, graph_bottom_left=(0, 0), graph_top_right=G_SIZE, enable_events=True,
