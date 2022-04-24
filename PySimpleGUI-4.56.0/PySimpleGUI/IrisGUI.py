@@ -7,6 +7,7 @@ import io
 import base64
 import configparser
 import os
+import shutil
 from os.path import exists
 Config = configparser.ConfigParser()
 
@@ -452,7 +453,7 @@ while True:
         new_f_name = split_f_name[0]+"_accepted"
         recon_f_name = f_loc.replace(split_f_name[0], new_f_name)
 
-        os.rename(f_loc,recon_f_name)
+        shutil.copyfile(f_loc,recon_f_name)
         #print(mask_image_id.file)
 
     if event == '-IN-OVAL-':
