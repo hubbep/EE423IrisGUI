@@ -219,6 +219,7 @@ class ImageProcessing:
             self.img = self.img.resize((int(cur_width * self.scale), int(cur_height * self.scale)), PIL.Image.ANTIALIAS)
 
     def draw_image_raw(self):
+        graph.change_coordinates((0, 0), G_SIZE)
         self.get_img()
         cur_width, cur_height = self.img.size
         if self.resize:
@@ -299,7 +300,7 @@ class ImageProcessing:
 '''
 program = ProgramInitialize()
 screen_width, screen_height = sg.Window.get_screen_size()
-G_SIZE = (screen_width-1200, screen_height-200)
+G_SIZE = (screen_width-800, screen_height-200)
 GVIEW_SIZE = (200, 200)
 sg.theme('black')
 
@@ -325,22 +326,24 @@ col = [[sg.T('SEGMENTATION PREVIEW', enable_events=True)],
        [graphseg],
        [sg.T('MASK PREVIEW', enable_events=True)],
        [graphmask],
-       [sg.T('GRAPH TOOLS', enable_events=True)],
-       [sg.R('Draw oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
-       [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
-       [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
-       [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
-       [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
-       # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
-       # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
-       # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
-       [sg.T('FILE TOOLS', enable_events=True)],
-       [sg.B('Previous Image', key='-PREV-'), sg.B('Next Image', key='-NEXT-')],
-       [sg.B('Save Mask', key='-SAVE-')],
        ]
 
+col2 = [[sg.T('GRAPH TOOLS', enable_events=True)],
+        [sg.R('Draw oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
+        [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
+        [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
+        [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
+        [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
+        # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
+        # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
+        # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
+        [sg.T('FILE TOOLS', enable_events=True)],
+        [sg.B('Previous Image', key='-PREV-'), sg.B('Next Image', key='-NEXT-')],
+        [sg.B('Save Mask', key='-SAVE-')],
+        ]
+
 layout = [[sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-'), sg.Text('', k='-DIMERROR-')],
-          [graph, sg.Column(col)],
+          [graph, sg.Column(col), sg.Column(col2)],
           [sg.Text('Developed for Clarkson Universtiy Biometric Department'), sg.Text(key='info', size=(60, 1))]]
 window = sg.Window('Iris correction program', layout, margins=(0, 0), use_default_focus=False, finalize=True)
 
