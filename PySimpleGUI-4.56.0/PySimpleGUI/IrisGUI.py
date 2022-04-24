@@ -1,4 +1,6 @@
 # !/usr/bin/env python3.9
+import shutil
+
 import PySimpleGUI as sg
 import numpy as np
 from PIL import Image
@@ -93,7 +95,6 @@ class ProgramInitialize:
             print("Problem reading folder locations")
             exit(2)
 
-
 class OvalMask:
     """
     CLASS TO ACCESS MASK DATA AND LOGIC
@@ -142,22 +143,6 @@ class OvalMask:
         self.plotID = graph.draw_oval(start_point, end_point, line_color='red')
         return self.plotID
 
-
-class DragHistory:
-    def __init__(self, point_size=None):
-        self.dragPoints = tuple()
-        self.pointSize = point_size
-
-    def add_point(self, point=tuple()):
-        self.dragPoints = self.dragPoints + point
-
-
-class PointsHistory:
-    def __init__(self):
-        self.dragPaths = None
-
-    def add_path(self, drag_path=None):
-        self.dragPaths = self.dragPaths + drag_path
 
 # COULD POTENTIALLY IMPLEMENT ARC MASK TO MASK EYELIDS
 # class arcMask():
@@ -236,15 +221,12 @@ class ImageProcessing:
             self.img = self.img.resize((int(cur_width * self.scale), int(cur_height * self.scale)), PIL.Image.ANTIALIAS)
 
     def draw_image_raw(self):
-        graph.change_coordinates((0, 0), G_SIZE)
         self.get_img()
-        cur_width, cur_height = self.img.size
         if self.resize:
             self.resize_img()
         bio = io.BytesIO()
         self.img.save(bio, format="PNG")
         self.plotID = graph.draw_image(data=bio.getvalue(), location=(0, G_SIZE[1]))
-        graph.change_coordinates((0, (cur_height - G_SIZE[1])), (G_SIZE[0], cur_height))
         return self.plotID
 
     def draw_seg_image_raw(self):
@@ -269,10 +251,9 @@ class ImageProcessing:
         self.get_isfile()
         filename_prefix = os.path.basename(self.file)
         # filename_prefix = os.path.splitext(filename_prefix)[0]
-        filename_suffix = "reviewed.jpg"
+        # filename_suffix = "mask.jpg"
         # filename = os.path.join(program.maskFolder, filename_prefix + "_" + filename_suffix)
         filename = os.path.join(program.maskFolder, filename_prefix)
-        filename2 = os.path.join(program.maskFolder, filename_prefix + "_" + filename_suffix)
         cur_width, cur_height = self.img.size
 
         for k in range(0, cur_height, 1):
@@ -290,7 +271,6 @@ class ImageProcessing:
         new_image = Image.fromarray(self.array)
         new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
         new_image.save(filename)
-        new_image.save(filename2)
 
     # def img_init_config(self):
     #     for section in Config.sections():
@@ -345,27 +325,22 @@ col = [[sg.T('SEGMENTATION PREVIEW', enable_events=True)],
        [graphseg],
        [sg.T('MASK PREVIEW', enable_events=True)],
        [graphmask],
-       [sg.B('Accept Mask', key='-ACCEPT-')],
+       [sg.T('GRAPH TOOLS', enable_events=True)],
+       [sg.R('Draw oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
+       [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
+       [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
+       [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
+       [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
+       # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
+       # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
+       # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
+       [sg.T('FILE TOOLS', enable_events=True)],
+       [sg.B('Previous Image', key='-PREV-'), sg.B('Next Image', key='-NEXT-')],
+       [sg.B('Save Mask', key='-SAVE-')], [sg.B('Accept Mask', key='-ACCEPT-')],
        ]
 
-col2 = [[sg.T('GRAPH TOOLS', enable_events=True)],
-        [sg.R('Draw oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
-        [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
-        [sg.R('Draw points', 1, key='-POINTS-', enable_events=True)],
-        [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
-        [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
-        [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
-        [sg.B('Undo Points', key='-UNDO_P-')],
-        # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
-        # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
-        # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
-        [sg.T('FILE TOOLS', enable_events=True)],
-        [sg.B('Previous Image', key='-PREV-'), sg.B('Next Image', key='-NEXT-')],
-        [sg.B('Save Mask', key='-SAVE-')],
-        ]
-
 layout = [[sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-'), sg.Text('', k='-DIMERROR-')],
-          [graph, sg.Column(col), sg.Column(col2)],
+          [graph, sg.Column(col)],
           [sg.Text('Developed for Clarkson Universtiy Biometric Department'), sg.Text(key='info', size=(60, 1))]]
 window = sg.Window('Iris correction program', layout, margins=(0, 0), use_default_focus=False, finalize=True)
 
@@ -393,8 +368,6 @@ start_point = end_point = prior_rect = None
 while True:
     event: object
     event, values = window.read()
-    # This is cool but how is order determined?
-    print(event, values)
     if event == sg.WIN_CLOSED:
         break
 
@@ -452,8 +425,9 @@ while True:
         new_f_name = split_f_name[0]+"_accepted"
         recon_f_name = f_loc.replace(split_f_name[0], new_f_name)
 
-        os.rename(f_loc,recon_f_name)
-        #print(mask_image_id.file)
+        shutil.copyfile(f_loc,recon_f_name)
+
+        print(recon_f_name)
 
     if event == '-IN-OVAL-':
         tool = '-IN-OVAL-'
@@ -473,8 +447,7 @@ while True:
         graph.delete_figure(prior_rect)
 
     if event == '-GRAPH-' and (
-            tool == '-IN-OVAL-' or tool == '-OUT-OVAL-' or
-            tool == '-DRAW_P-'):  # if there's a "Graph" event that requires a drag select
+            tool == '-IN-OVAL-' or tool == '-OUT-OVAL-'):  # if there's a "Graph" event that requires a drag select
         x, y = values['-GRAPH-']
         if not dragging:
             start_point = (x, y)
@@ -500,9 +473,6 @@ while True:
             del outer_mask
             outer_mask = OvalMask(top_left=start_point, bottom_right=end_point)
             outer_mask.get_plotid()
-        if values['-POINT-']:
-            graph.draw_point((x, y), size=8)
-
         start_point, end_point = None, None  # enable grabbing a new rect
         dragging = False
 
