@@ -93,6 +93,7 @@ class ProgramInitialize:
             print("Problem reading folder locations")
             exit(2)
 
+
 class OvalMask:
     """
     CLASS TO ACCESS MASK DATA AND LOGIC
@@ -141,6 +142,22 @@ class OvalMask:
         self.plotID = graph.draw_oval(start_point, end_point, line_color='red')
         return self.plotID
 
+
+class DragHistory:
+    def __init__(self, point_size=None):
+        self.dragPoints = tuple()
+        self.pointSize = point_size
+
+    def add_point(self, point=tuple()):
+        self.dragPoints = self.dragPoints + point
+
+
+class PointsHistory:
+    def __init__(self):
+        self.dragPaths = None
+
+    def add_path(self, drag_path=None):
+        self.dragPaths = self.dragPaths + drag_path
 
 # COULD POTENTIALLY IMPLEMENT ARC MASK TO MASK EYELIDS
 # class arcMask():
@@ -252,9 +269,10 @@ class ImageProcessing:
         self.get_isfile()
         filename_prefix = os.path.basename(self.file)
         # filename_prefix = os.path.splitext(filename_prefix)[0]
-        # filename_suffix = "mask.jpg"
+        filename_suffix = "reviewed.jpg"
         # filename = os.path.join(program.maskFolder, filename_prefix + "_" + filename_suffix)
         filename = os.path.join(program.maskFolder, filename_prefix)
+        filename2 = os.path.join(program.maskFolder, filename_prefix + "_" + filename_suffix)
         cur_width, cur_height = self.img.size
 
         for k in range(0, cur_height, 1):
@@ -272,6 +290,7 @@ class ImageProcessing:
         new_image = Image.fromarray(self.array)
         new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
         new_image.save(filename)
+        new_image.save(filename2)
 
     # def img_init_config(self):
     #     for section in Config.sections():
@@ -371,6 +390,8 @@ start_point = end_point = prior_rect = None
 while True:
     event: object
     event, values = window.read()
+    # This is cool but how is order determined?
+    print(event, values)
     if event == sg.WIN_CLOSED:
         break
 
@@ -419,7 +440,6 @@ while True:
         cfgfile = open(config_file_location, 'w')
         Config.write(cfgfile)
         cfgfile.close()
-
 
     if event == '-IN-OVAL-':
         tool = '-IN-OVAL-'
