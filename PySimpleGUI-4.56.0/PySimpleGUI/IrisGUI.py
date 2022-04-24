@@ -220,11 +220,13 @@ class ImageProcessing:
 
     def draw_image_raw(self):
         self.get_img()
+        cur_width, cur_height = self.img.size
         if self.resize:
             self.resize_img()
         bio = io.BytesIO()
         self.img.save(bio, format="PNG")
         self.plotID = graph.draw_image(data=bio.getvalue(), location=(0, G_SIZE[1]))
+        graph.change_coordinates((0, (cur_height - G_SIZE[1])), (G_SIZE[0], cur_height))
         return self.plotID
 
     def draw_seg_image_raw(self):
@@ -297,7 +299,7 @@ class ImageProcessing:
 '''
 program = ProgramInitialize()
 screen_width, screen_height = sg.Window.get_screen_size()
-G_SIZE = (screen_width-800, screen_height-200)
+G_SIZE = (screen_width-1200, screen_height-200)
 GVIEW_SIZE = (200, 200)
 sg.theme('black')
 
