@@ -362,7 +362,7 @@ col = [[sg.T('SEGMENTATION PREVIEW', enable_events=True)],
        [graphseg],
        [sg.T('MASK PREVIEW', enable_events=True)],
        [graphmask],
-       # [sg.B('Mask Is Acceptable', key='-ACCEPT-')],
+       [sg.B('Mask Is Acceptable', key='-ACCEPT-')],
        ]
 
 col2 = [[sg.T('GRAPH TOOLS', enable_events=True)],
