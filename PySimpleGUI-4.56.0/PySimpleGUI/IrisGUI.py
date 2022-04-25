@@ -495,8 +495,8 @@ while True:
             if values['-IN-OVAL-'] or values['-OUT-OVAL-']:
                 prior_rect = graph.draw_rectangle(start_point, end_point, line_color='red')
             if values['-POINTS-']:
-                graph.draw_point((x, y), size=8, color='red')
-                image_id.mask_add_points_in_circle((x, y), size=8)
+                graph.draw_point((x, y), size=32, color='red')
+                image_id.mask_add_points_in_circle((x, y), size=32)
             # elif values['-MOVE-']:
             #     for fig in drag_figures:
             #         graph.move_figure(fig, delta_x, delta_y)
@@ -537,8 +537,8 @@ while True:
             outer_mask = OvalMask(top_left=start_point, bottom_right=end_point)
             outer_mask.get_plotid()
         if values['-POINTS-']:
-            graph.draw_point((x, y), size=8)
-            image_id.mask_add_points_in_circle((x, y), size=8)
+            graph.draw_point((x, y), size=32, color='red')
+            image_id.mask_add_points_in_circle((x, y), size=32)
         start_point, end_point = None, None  # enable grabbing a new rect
         dragging = False
 
