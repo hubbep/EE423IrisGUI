@@ -8,7 +8,14 @@ import base64
 import configparser
 import os
 from os.path import exists
+from itertools import product
 Config = configparser.ConfigParser()
+
+
+def points_in_circle(radius):
+    for x, y in product(range(int(radius) + 1), repeat=2):
+        if x**2 + y**2 <= radius**2:
+            yield from set(((x, y), (x, -y), (-x, y), (-x, -y),))
 
 
 def config_section_map(section):
@@ -281,8 +288,8 @@ class ImageProcessing:
                     self.array[k, h] = [0, 0, 0]
                 elif outer_mask.check_inside(point=(h, k)) is False:
                     self.array[k, h] = [0, 0, 0]
-                else:
-                    self.array[k, h] = [255, 255, 255]
+                # else:
+                #     self.array[k, h] = [255, 255, 255]
 
         self.array = np.flip(self.array, axis=0)
 
@@ -291,6 +298,13 @@ class ImageProcessing:
         new_image = new_image.resize(size=(image_id.org_width, image_id.org_height))
         new_image.save(filename)
         new_image.save(filename2)
+
+    def mask_add_points_in_circle(self, center, size):
+        points = list(points_in_circle(size))
+        for point in points:
+            i, j = point
+            h, k = center
+            self.array[k+j, h+i] = [0, 0, 0]
 
     # def img_init_config(self):
     #     for section in Config.sections():
@@ -345,17 +359,17 @@ col = [[sg.T('SEGMENTATION PREVIEW', enable_events=True)],
        [graphseg],
        [sg.T('MASK PREVIEW', enable_events=True)],
        [graphmask],
-       [sg.B('Accept Mask', key='-ACCEPT-')],
+       # [sg.B('Mask Is Acceptable', key='-ACCEPT-')],
        ]
 
 col2 = [[sg.T('GRAPH TOOLS', enable_events=True)],
         [sg.R('Draw oval - inner iris', 1, key='-IN-OVAL-', enable_events=True)],
         [sg.R('Draw oval - outer iris', 1, key='-OUT-OVAL-', enable_events=True)],
-        [sg.R('Draw points', 1, key='-POINTS-', enable_events=True)],
+        [sg.R('Mask points', 1, key='-POINTS-', enable_events=True)],
         [sg.R('Erase - inner iris', 1, key='-ERASE-INNER-', enable_events=True)],
         [sg.R('Erase - outer iris', 1, key='-ERASE-OUTER-', enable_events=True)],
         [sg.R('Erase all', 1, key='-CLEAR-', enable_events=True)],
-        [sg.B('Undo Points', key='-UNDO_P-')],
+        # [sg.B('Undo Points', key='-UNDO-P-')],
         # [sg.R('Send to back', 1, key='-BACK-', enable_events=True)],
         # [sg.R('Bring to front', 1, key='-FRONT-', enable_events=True)],
         # [sg.R('Move Stuff', 1, key='-MOVE-', enable_events=True)],
@@ -366,7 +380,7 @@ col2 = [[sg.T('GRAPH TOOLS', enable_events=True)],
 
 layout = [[sg.Text(f'Displaying image: '), sg.Text(k='-FILENAME-'), sg.Text('', k='-DIMERROR-')],
           [graph, sg.Column(col), sg.Column(col2)],
-          [sg.Text('Developed for Clarkson Universtiy Biometric Department'), sg.Text(key='info', size=(60, 1))]]
+          [sg.Text('Developed for Clarkson Universtiy Biometric Department'), sg.Text(key='-INFO-', size=(60, 1))]]
 window = sg.Window('Iris correction program', layout, margins=(0, 0), use_default_focus=False, finalize=True)
 
 '''
@@ -393,8 +407,6 @@ start_point = end_point = prior_rect = None
 while True:
     event: object
     event, values = window.read()
-    # This is cool but how is order determined?
-    print(event, values)
     if event == sg.WIN_CLOSED:
         break
 
@@ -455,12 +467,6 @@ while True:
         os.rename(f_loc,recon_f_name)
         #print(mask_image_id.file)
 
-    if event == '-IN-OVAL-':
-        tool = '-IN-OVAL-'
-
-    if event == '-OUT-OVAL-':
-        tool = '-OUT-OVAL-'
-
     if values['-ERASE-INNER-']:
         graph.delete_figure(inner_mask.plotID)
         graph.delete_figure(prior_rect)
@@ -472,38 +478,79 @@ while True:
         graph.delete_figure(outer_mask.plotID)
         graph.delete_figure(prior_rect)
 
-    if event == '-GRAPH-' and (
-            tool == '-IN-OVAL-' or tool == '-OUT-OVAL-' or
-            tool == '-DRAW_P-'):  # if there's a "Graph" event that requires a drag select
-        x, y = values['-GRAPH-']
+    if event == "-GRAPH-": # if there's a "Graph" event, then it's a mouse
+        x, y = values["-GRAPH-"]
         if not dragging:
             start_point = (x, y)
             dragging = True
+            # drag_figures = graph.get_figures_at_location((x, y))
+            # lastxy = x, y
         else:
             end_point = (x, y)
         if prior_rect:
             graph.delete_figure(prior_rect)
+        # delta_x, delta_y = x - lastxy[0], y - lastxy[1]
+        # lastxy = x, y
         if None not in (start_point, end_point):
-            prior_rect = graph.draw_rectangle(start_point, end_point, line_color='red')
+            if values['-IN-OVAL-'] or values['-OUT-OVAL-']:
+                prior_rect = graph.draw_rectangle(start_point, end_point, line_color='red')
+            if values['-POINTS-']:
+                graph.draw_point((x, y), size=8, color='red')
+                image_id.mask_add_points_in_circle((x, y), size=8)
+            # elif values['-MOVE-']:
+            #     for fig in drag_figures:
+            #         graph.move_figure(fig, delta_x, delta_y)
+            #         graph.update()
+            # elif values['-RECT-']:
+            #     prior_rect = graph.draw_rectangle(start_point, end_point, fill_color='green', line_color='red')
+            # elif values['-CIRCLE-']:
+            #     prior_rect = graph.draw_circle(start_point, end_point[0] - start_point[0], fill_color='red',
+            #                                    line_color='green')
+            # elif values['-LINE-']:
+            #     prior_rect = graph.draw_line(start_point, end_point, width=4)
+            # elif values['-ERASE-']:
+            #     for figure in drag_figures:
+            #         graph.delete_figure(figure)
+            # elif values['-CLEAR-']:
+            #     graph.erase()
+            # elif values['-MOVEALL-']:
+            #     graph.move(delta_x, delta_y)
+            # elif values['-FRONT-']:
+            #     for fig in drag_figures:
+            #         graph.bring_figure_to_front(fig)
+            # elif values['-BACK-']:
+            #     for fig in drag_figures:
+            #         graph.send_figure_to_back(fig)
+
     elif event.endswith('+UP'):  # The drawing has ended because mouse up
-        info = window['info']
-        info.update(value=f"grabbed rectangle from {start_point} to {end_point}")
-        if tool == '-IN-OVAL-':
+        window["-INFO-"].update(value=f"grabbed rectangle from {start_point} to {end_point}")
+        if values['-IN-OVAL-']:
             if inner_mask.plotID:
                 graph.delete_figure(inner_mask.plotID)
             del inner_mask
             inner_mask = OvalMask(top_left=start_point, bottom_right=end_point)
             inner_mask.get_plotid()
-        if tool == '-OUT-OVAL-':
+        if values['-OUT-OVAL-']:
             if outer_mask.plotID:
                 graph.delete_figure(outer_mask.plotID)
             del outer_mask
             outer_mask = OvalMask(top_left=start_point, bottom_right=end_point)
             outer_mask.get_plotid()
-        if values['-POINT-']:
+        if values['-POINTS-']:
             graph.draw_point((x, y), size=8)
-
+            image_id.mask_add_points_in_circle((x, y), size=8)
         start_point, end_point = None, None  # enable grabbing a new rect
         dragging = False
+
+    # elif event.endswith('+RIGHT+'):  # Righ click
+    #     window["-INFO-"].update(value=f"Right clicked location {values['-GRAPH-']}")
+    # elif event.endswith('+MOTION+'):  # Righ click
+    #     window["-INFO-"].update(value=f"mouse freely moving {values['-GRAPH-']}")
+    # elif event == 'Erase item':
+    #     window["-INFO-"].update(value=f"Right click erase at {values['-GRAPH-']}")
+    #     if values['-GRAPH-'] != (None, None):
+    #         drag_figures = graph.get_figures_at_location(values['-GRAPH-'])
+    #         for figure in drag_figures:
+    #             graph.delete_figure(figure)
 
 window.close()
